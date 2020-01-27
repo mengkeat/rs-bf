@@ -2,7 +2,7 @@
 Brain***k in Rust: Getting to know Rust with a toy implementation of BF.
 
 ### TO Run 
-Command line: rs-bf <bf-file>
+Command line: rs-bf \<bf-file\>
 
 ### Note:
 - BF memory location is at least according to Wikipedia (https://en.wikipedia.org/wiki/Brainfuck) of
