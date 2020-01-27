@@ -63,7 +63,7 @@ impl VM {
                 _   => Instruction::Unknown,
             };
             if instr==Instruction::Unknown {
-                println!("Unknown instruction {} encountered", c);
+                // println!("Unknown instruction {} encountered", c);
                 continue;
             }            
             else if instr==Instruction::Begin {
@@ -86,13 +86,25 @@ impl VM {
         Ok(())
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> Result<()> {
         while self.ip != self.prog.len() {
             match self.prog[self.ip] {
-                Instruction::Right  => self.dat_ptr += 1,
-                Instruction::Left   => self.dat_ptr -= 1,
-                Instruction::Incr   => self.mem[self.dat_ptr] += 1,
-                Instruction::Decr   => self.mem[self.dat_ptr] -= 1,
+                Instruction::Right  => { self.dat_ptr += 1; 
+                                        if self.dat_ptr>=MEM_SIZE { return err!("Memory overflow"); } },
+                Instruction::Left   => { if self.dat_ptr==0 { return err!("Memory underflow") }
+                                        self.dat_ptr -= 1; },
+                Instruction::Incr   => { if self.mem[self.dat_ptr]==255 { 
+                                            self.mem[self.dat_ptr]=0; 
+                                        }
+                                        else {
+                                            self.mem[self.dat_ptr] += 1; 
+                                        } },
+                Instruction::Decr   => { if self.mem[self.dat_ptr]==0 {
+                                            self.mem[self.dat_ptr]=255;
+                                         } 
+                                         else {
+                                            self.mem[self.dat_ptr] -= 1; 
+                                        } },
                 Instruction::Output => print!("{}", self.mem[self.dat_ptr] as char),
                 Instruction::Read   => self.mem[self.dat_ptr] = std::io::stdin().bytes().next().unwrap().unwrap(),
                 Instruction::Begin  => if self.mem[self.dat_ptr]==0 { 
@@ -101,10 +113,12 @@ impl VM {
                 Instruction::End    => if self.mem[self.dat_ptr]!=0 {
                                             self.ip = self.prog_meta[self.ip] as usize;
                                         }
-                Instruction::Unknown => println!("Unknown instruction encountered in execution"), 
+                Instruction::Unknown => { return err!("Unknown instruction encountered in execution"); }, 
             }
             self.ip += 1;
         }
+
+        Ok(())
     }
 }
 
@@ -120,6 +134,6 @@ fn main() -> Result<()> {
     let src =  fs::read_to_string(&args[1])?;
     let mut vm = VM::new();
     vm.load_program(&src)?;
-    vm.run();
+    vm.run()?;
     Ok(())
 }
