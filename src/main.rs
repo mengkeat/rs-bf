@@ -3,6 +3,7 @@ use std::fs;
 use std::env;
 use std::result;
 use std::error::Error;
+use std::io::Read;
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
@@ -27,20 +28,20 @@ struct VM {
     prog: Vec<Instruction>,
     prog_meta: Vec<u32>,
     mem: [u8; MEM_SIZE],
-    instr_ptr: usize,
+    ip: usize,
     dat_ptr: usize,
 }
 
 impl VM {
     fn new() -> VM {
-        VM { prog: Vec::new(), prog_meta: Vec::new(), mem: [0; MEM_SIZE], instr_ptr: 0, dat_ptr: 0 }
+        VM { prog: Vec::new(), prog_meta: Vec::new(), mem: [0; MEM_SIZE], ip: 0, dat_ptr: 0 }
     }
 
     fn clear_all(&mut self) {
         self.prog.clear();
         self.prog_meta.clear();
         self.mem = [0; MEM_SIZE];
-        self.instr_ptr = 0;
+        self.ip = 0;
         self.dat_ptr = 0;
     }
 
@@ -71,6 +72,7 @@ impl VM {
             else if instr==Instruction::End {
                 if let Some(b) = brk.pop() {
                     pmeta = b as u32;
+                    // TOOD: Error checking if it goes out of program length
                     self.prog_meta[b] = self.prog.len() as u32;
                 }
                 else {             
@@ -84,7 +86,26 @@ impl VM {
         Ok(())
     }
 
-    // fn execute(&mut self) {}
+    fn run(&mut self) {
+        while self.ip != self.prog.len() {
+            match self.prog[self.ip] {
+                Instruction::Right  => self.dat_ptr += 1,
+                Instruction::Left   => self.dat_ptr -= 1,
+                Instruction::Incr   => self.mem[self.dat_ptr] += 1,
+                Instruction::Decr   => self.mem[self.dat_ptr] -= 1,
+                Instruction::Output => print!("{}", self.mem[self.dat_ptr] as char),
+                Instruction::Read   => self.mem[self.dat_ptr] = std::io::stdin().bytes().next().unwrap().unwrap(),
+                Instruction::Begin  => if self.mem[self.dat_ptr]==0 { 
+                                            self.ip = self.prog_meta[self.ip] as usize;
+                                        }
+                Instruction::End    => if self.mem[self.dat_ptr]!=0 {
+                                            self.ip = self.prog_meta[self.ip] as usize;
+                                        }
+                Instruction::Unknown => println!("Unknown instruction encountered in execution"), 
+            }
+            self.ip += 1;
+        }
+    }
 }
 
 type Result<T> = result::Result<T, Box<dyn Error>>;
@@ -99,7 +120,6 @@ fn main() -> Result<()> {
     let src =  fs::read_to_string(&args[1])?;
     let mut vm = VM::new();
     vm.load_program(&src)?;
-    println!("{:?} {:?}", vm.prog, vm.prog_meta);
-
+    vm.run();
     Ok(())
 }
